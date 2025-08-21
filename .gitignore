@@ -1,0 +1,17 @@
+# Python キャッシュ
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# 環境ファイル
+config/secrets.env
+
+# 除外するディレクトリ
+backup/
+rakuten-card-analysis/
+tmp/
+
+# OSごとの不要ファイル
+.DS_Store
+Thumbs.db

@@ -1,0 +1,18 @@
+/* サイドバーの幅分だけページコンテンツにマージンを追加 */
+.dash-main-content {
+  margin-left: 16rem;
+  transition: margin-left 0.2s;
+}
+
+/* 画面幅が768px以下の場合はサイドバーを上部に移動 */
+@media (max-width: 768px) {
+  .sidebar {
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    padding: 1rem 0.5rem !important;
+  }
+  .dash-main-content {
+    margin-left: 0 !important;
+  }
+}
