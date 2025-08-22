@@ -11,6 +11,7 @@ config/secrets.env
 backup/
 rakuten-card-analysis/
 tmp/
+venv/
 
 # OSごとの不要ファイル
 .DS_Store
