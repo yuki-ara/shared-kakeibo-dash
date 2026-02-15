@@ -23,12 +23,12 @@ curl -X DELETE 'https://yuuirnewmsmnbfsdsqdn.supabase.co/rest/v1/shared_kakeibo?
 毎月12日くらいに確定メールが届く。[楽天e-navi](https://www.rakuten-card.co.jp/e-navi/members/index.xhtml?l-id=enavi_all_navi_top)にログインし、最新の確定後明細をcsvでダウンロードする。
 ### 2. CSVファイルを所定ディレクトリに移動させる
 ```bash
-mv /Users/arakawayuki/Downloads/enavi*.csv /Users/arakawayuki/Documents/my-code/python/new_shared_kakeibo/rakuten-card-analysis/credit-statement/
+mv /Users/arakawayuki/Downloads/enavi*.csv /Users/arakawayuki/Documents/my-code/python/shared-kakeibo-dash/rakuten-card-analysis/credit-statement/
 ```
 ### 3. CSVファイルのフォーマット
 `shared_kakeibo`にインサート可能なデータにするために、必要なカラムを追加するスクリプトを実行する。
 ```bash
-cd /Users/arakawayuki/Documents/my-code/python/new_shared_kakeibo/rakuten-card-analysis
+cd /Users/arakawayuki/Documents/my-code/python/shared-kakeibo-dash/rakuten-card-analysis
 python3 process-credit-statement.py credit-statement/enavi202503\(1314\).csv 
 ```
 ### 4. 手動でCSVファイルを編集する
@@ -36,7 +36,7 @@ python3 process-credit-statement.py credit-statement/enavi202503\(1314\).csv
 - `category`, `shop`を埋める。databaseを適宜参照しながら、`id`の番号を入れていく。
 - CLIでもダブルチェック。
 ```bash
-vi /Users/arakawayuki/Documents/my-code/python/new_shared_kakeibo/rakuten-card-analysis/credit-statement/processed_enavi*.csv
+vi /Users/arakawayuki/Documents/my-code/python/shared-kakeibo-dash/rakuten-card-analysis/credit-statement/processed_enavi*.csv
 ```
 ### 5. 家計簿DBに登録
 ```bash
