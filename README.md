@@ -38,6 +38,9 @@ SUPABASE_KEY=<Subabase DB接続のための認証キー>
 ### 5. アプリを起動
 ```bash
 python run.py
+
+# バックグラウンドでサービスとして実行する
+nohup python run.py > ../app.log 2>&1 &
 ```
 ブラウザで http://ホスト名:8050 を開くとアプリが表示されます。
 
