@@ -1,6 +1,8 @@
 from app import create_app
+import os
 
 app = create_app()
 
 if __name__ == "__main__":
-    app.run_server(debug=True, host='0.0.0.0', port=8050)
+    debug = os.getenv("DEBUG", "false").lower() == "true"
+    app.run_server(debug=debug, host='0.0.0.0', port=8050)

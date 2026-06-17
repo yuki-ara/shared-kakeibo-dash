@@ -147,7 +147,7 @@ def update_income_outcome_trend(n_clicks):
         monthly_balance=('balance', 'sum')
     ).reset_index()
     df_monthly_summary['total_saving'] = df_monthly_summary['monthly_balance'].cumsum()
-    df_monthly_summary['saving_rate']  = (df_monthly_summary['monthly_balance'] / df_monthly_summary['monthly_income'] * 100).fillna(0)
+    df_monthly_summary['saving_rate']  = (df_monthly_summary['monthly_balance'] / df_monthly_summary['monthly_income'].replace(0, float('nan')) * 100).fillna(0)
     area_fig = go.Figure()
     area_fig.add_trace(go.Scatter(x=df_monthly_summary['YearMonth'], y=df_monthly_summary['monthly_income'] , name='月収入', mode='lines+markers', line_shape='spline', fill='tozeroy'))
     area_fig.add_trace(go.Scatter(x=df_monthly_summary['YearMonth'], y=df_monthly_summary['monthly_expense'], name='月支出', mode='lines+markers', line_shape='spline', fill='tozeroy'))
