@@ -26,8 +26,17 @@ layout = html.Div([
             is_open=False,
             dismissable=True,
             icon="success",
-            duration=4000,  # 4秒後に自動で閉じる
-            # top: 66 positions the toast below the navbar
+            duration=4000,
+            style={"position": "fixed", "top": 66, "right": 10, "width": 350},
+    ),
+    dbc.Toast(
+            "",
+            id="error-toast",
+            header="エラー",
+            is_open=False,
+            dismissable=True,
+            icon="danger",
+            duration=6000,
             style={"position": "fixed", "top": 66, "right": 10, "width": 350},
     ),
     dbc.Form([
@@ -51,7 +60,7 @@ layout = html.Div([
         ]),
         dbc.Row([
             dbc.Label('品目', html_for='item-input', width=2),
-            dbc.Col(dbc.Input(id='item-input', type='text', placeholder='品目'), width=10)
+            dbc.Col(dbc.Input(id='item-input', type='text', placeholder='品目', maxLength=100), width=10)
         ]),
         dbc.Row([
             dbc.Label('カテゴリ', html_for='category-dropdown', width=2),
@@ -61,7 +70,7 @@ layout = html.Div([
                     options=category_options,
                     placeholder='カテゴリ',
                     className='dbc'
-                    ), 
+                    ),
                 width=10
             )
         ]),
@@ -72,7 +81,7 @@ layout = html.Div([
                 options=shop_options,
                 placeholder='店名',
                 className='dbc'
-                ), 
+                ),
                 width=10
             )
         ]),
@@ -83,7 +92,7 @@ layout = html.Div([
                 options=payment_options,
                 placeholder='支払方法',
                 className='dbc'
-                ), 
+                ),
                 width=10)
         ]),
         dbc.Row([
@@ -91,7 +100,8 @@ layout = html.Div([
             dbc.Col(dbc.Input(
                 id='remark-input',
                 type='text',
-                placeholder='備考'
+                placeholder='備考',
+                maxLength=200
             ), width=10)
         ]),
         dbc.Row([
@@ -119,6 +129,8 @@ layout = html.Div([
 @dash.callback(
     dash.Output('submit-button', 'n_clicks'),
     dash.Output('success-toast', 'is_open'),
+    dash.Output('error-toast', 'is_open'),
+    dash.Output('error-toast', 'children'),
     [dash.Input('submit-button', 'n_clicks')],
     [
         dash.State('date-picker-single', 'date'),
@@ -134,6 +146,17 @@ layout = html.Div([
 )
 def insert_data(n_clicks, date_value, income_value, expense_value, item_value, category_value, shop_value, payment_value, remark_value, editor_value):
     if n_clicks > 0:
+        if not date_value:
+            return n_clicks + 1, False, True, "日付を入力してください。"
+        if not editor_value:
+            return n_clicks + 1, False, True, "担当者を選択してください。"
+        if income_value is None and expense_value is None:
+            return n_clicks + 1, False, True, "収入または支出を入力してください。"
+        if income_value is not None and income_value < 0:
+            return n_clicks + 1, False, True, "収入は0以上の値を入力してください。"
+        if expense_value is not None and expense_value < 0:
+            return n_clicks + 1, False, True, "支出は0以上の値を入力してください。"
+
         record = {
             'date': date_value,
             'income': income_value,
@@ -146,9 +169,12 @@ def insert_data(n_clicks, date_value, income_value, expense_value, item_value, c
             'created_at': datetime.now().isoformat(timespec='seconds'),
             'editor': editor_value
         }
-        insert_record('shared_kakeibo', record)
-        return n_clicks + 1, True
-    return 0, False
+        try:
+            insert_record('shared_kakeibo', record)
+            return n_clicks + 1, True, False, ""
+        except Exception:
+            return n_clicks + 1, False, True, "データの保存中にエラーが発生しました。しばらくしてから再試行してください。"
+    return 0, False, False, ""
 
 @dash.callback(
     dash.Output('date-picker-single', 'date'),
@@ -159,16 +185,18 @@ def insert_data(n_clicks, date_value, income_value, expense_value, item_value, c
     dash.Output('shop-dropdown', 'value'),
     dash.Output('payment-dropdown', 'value'),
     dash.Output('remark-input', 'value'),
+    dash.Output('editor-input', 'value'),
     [dash.Input('reset-button', 'n_clicks')]
 )
 def reset_form(n_clicks):
     return (
-        date.today().isoformat(),  # Reset date to today
-        None,  # Reset income
-        None,  # Reset expense
-        '',    # Reset item
-        None,  # Reset category
-        None,  # Reset shop
-        None,  # Reset payment
-        ''     # Reset remark
+        date.today().isoformat(),
+        None,
+        None,
+        '',
+        None,
+        None,
+        None,
+        '',
+        None
     )

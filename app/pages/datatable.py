@@ -12,7 +12,7 @@ def fetch_data():
     if data:
         return pd.DataFrame(data)
     else:
-        return pd.DataFrame(columns=['date', 'income', 'expense', 'iten', 'category', 'shop', 'payment', 'note', 'created_at', 'editor'])
+        return pd.DataFrame(columns=['date', 'income', 'expense', 'item', 'category', 'shop', 'payment', 'note', 'created_at', 'editor'])
 
 
 layout = dbc.Container([
@@ -92,7 +92,8 @@ def show_selected_row_id(selected_row_ids):
     State('modal', 'is_open')
 )
 def toggle_modal(delete_clicks, close_clicks, delete_modal_clicks, is_open):
-    if delete_clicks or close_clicks or delete_modal_clicks:
+    triggered = dash.ctx.triggered_id
+    if triggered in ('delete-btn', 'cancel-modal-btn', 'delete-modal-btn'):
         return not is_open
     return is_open
 
@@ -104,6 +105,11 @@ def toggle_modal(delete_clicks, close_clicks, delete_modal_clicks, is_open):
 def delete_selected_row(n_clicks, selected_row_ids):
     if (n_clicks or 0) > 0 and selected_row_ids:
         row_id = selected_row_ids[0]
-        delete_record('shared_kakeibo', row_id)
+        if not isinstance(row_id, int) or row_id <= 0:
+            return dash.no_update, dash.no_update
+        try:
+            delete_record('shared_kakeibo', row_id)
+        except Exception:
+            return dash.no_update, dash.no_update
         return fetch_data().to_dict('records'), []
     return dash.no_update, dash.no_update
