@@ -157,13 +157,11 @@ def update_table(n_clicks):
     Output('selected-row', 'value'),
     Output('edit-btn', 'disabled'),
     Output('delete-btn', 'disabled'),
-    Input('datatable', 'selected_rows'),
-    State('datatable', 'data'),
+    Input('datatable', 'selected_row_ids'),
 )
-def on_row_selected(selected_rows, table_data):
-    if selected_rows and table_data:
-        row = table_data[selected_rows[0]]
-        return row.get('id'), False, False
+def on_row_selected(selected_row_ids):
+    if selected_row_ids:
+        return selected_row_ids[0], False, False
     return None, True, True
 
 
@@ -182,19 +180,22 @@ def on_row_selected(selected_rows, table_data):
     Output('edit-error-msg', 'is_open'),
     Input('edit-btn', 'n_clicks'),
     Input('cancel-edit-btn', 'n_clicks'),
-    State('datatable', 'selected_rows'),
+    State('datatable', 'selected_row_ids'),
     State('datatable', 'data'),
     State('edit-modal', 'is_open'),
     prevent_initial_call=True
 )
-def toggle_edit_modal(edit_clicks, cancel_clicks, selected_rows, table_data, is_open):
+def toggle_edit_modal(edit_clicks, cancel_clicks, selected_row_ids, table_data, is_open):
     triggered = dash.ctx.triggered_id
 
     if triggered == 'cancel-edit-btn':
         return False, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, False
 
-    if triggered == 'edit-btn' and selected_rows and table_data:
-        row = table_data[selected_rows[0]]
+    if triggered == 'edit-btn' and selected_row_ids and table_data:
+        row_id = selected_row_ids[0]
+        row = next((r for r in table_data if r.get('id') == row_id), None)
+        if row is None:
+            return False, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, False
         return (
             True,
             row.get('date'),
@@ -278,12 +279,13 @@ def toggle_delete_modal(delete_clicks, close_clicks, delete_modal_clicks, is_ope
 # 削除処理
 @callback(
     Output('datatable', 'data'),
-    Output('datatable', 'selected_rows'),
+    Output('datatable', 'selected_row_ids'),
     Input('delete-modal-btn', 'n_clicks'),
-    State('selected-row', 'value'),
+    State('datatable', 'selected_row_ids'),
 )
-def delete_selected_row(n_clicks, row_id):
-    if (n_clicks or 0) > 0 and row_id is not None:
+def delete_selected_row(n_clicks, selected_row_ids):
+    if (n_clicks or 0) > 0 and selected_row_ids:
+        row_id = selected_row_ids[0]
         if not isinstance(row_id, int) or row_id <= 0:
             return dash.no_update, dash.no_update
         try:
