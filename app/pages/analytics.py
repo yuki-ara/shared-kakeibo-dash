@@ -9,6 +9,9 @@ from db.crud import fetch_all_records
 
 dash.register_page(__name__)
 
+# 突発的・特別支出として通常グラフから除外するカテゴリ
+IRREGULAR_CATEGORIES = ['家具・家電', '交際費', '旅行費', '冠婚葬祭', 'その他']
+
 def fetch_data():
     data = fetch_all_records('shared_kakeibo_view')
     if data:
@@ -80,9 +83,9 @@ layout = dbc.Container([
         dbc.Col(dcc.Graph(id='pie-expense-category'),       width=12, md=4, className="mb-4"),
         dbc.Col(dcc.Graph(id='income-outcome-trend-graph'), width=12, md=8, className="mb-4"),
     ]),
-    # dbc.Row([
-    #     dbc.Col(dcc.Graph(figure=balance_ratio_gauge , id='balance-ratio-gouge'), width=4, className="mb-4"),
-    # ])
+    dbc.Row([
+        dbc.Col(dcc.Graph(id='irregular-expense-graph'), width=12, className="mb-4"),
+    ]),
     dbc.Row([
         dbc.Col(dcc.Graph(id='area-income-outcome-trend'), width=12, className="mb-4"),
     ]),
@@ -99,6 +102,7 @@ layout = dbc.Container([
         Output('total-balance-ratio', 'children'),
         Output('pie-expense-category', 'figure'),
         Output('income-outcome-trend-graph', 'figure'),
+        Output('irregular-expense-graph', 'figure'),
         Output('area-income-outcome-trend', 'figure'),
         Output('table-monthly-summary', 'children')
     ],
@@ -115,29 +119,53 @@ def update_income_outcome_trend(n_clicks):
     total_balance_ratio = (total_balance / total_income * 100) if total_income != 0 else 0
 
     # Graphs
-    df_grouped = df.groupby(['YearMonth', 'category'], as_index=False).sum()
+    df_regular   = df[~df['category'].isin(IRREGULAR_CATEGORIES)]
+    df_irregular = df[ df['category'].isin(IRREGULAR_CATEGORIES)]
 
-    ## Pie Chart by Category
+    df_grouped_regular  = df_regular.groupby(['YearMonth', 'category'], as_index=False).sum()
+    df_grouped_irregular= df_irregular.groupby(['YearMonth', 'category'], as_index=False).sum()
+
+    ## Pie Chart by Category (通常支出のみ)
     pie_fig = px.pie(
-        df_grouped,
+        df_grouped_regular,
         names='category',
         values='expense',
-        title='支出カテゴリ別割合',
+        title='支出カテゴリ別割合（通常支出）',
         hole=0.3,
         color_discrete_sequence=px.colors.qualitative.Pastel,
     )
 
-    ## Bar Chart by Category and Month
+    ## Bar Chart by Category and Month (通常支出のみ)
     bar_fig = px.bar(
-        df_grouped,
+        df_grouped_regular,
         x='YearMonth',
         y='expense',
         color='category',
         barmode='stack',
         text_auto=True,
-        title='月ごとの支出カテゴリ別集計',
+        title='月ごとの支出カテゴリ別集計（通常支出）',
         color_discrete_sequence=px.colors.qualitative.Pastel,
     )
+
+    ## Bar Chart for Irregular Expenses
+    if df_grouped_irregular.empty:
+        irregular_fig = go.Figure()
+        irregular_fig.update_layout(
+            title='突発・特別支出の発生月（家具・家電 / 交際費 / 旅行費 / 冠婚葬祭 / その他）',
+            annotations=[dict(text='該当データなし', showarrow=False, font_size=16, xref='paper', yref='paper', x=0.5, y=0.5)]
+        )
+    else:
+        irregular_fig = px.bar(
+            df_grouped_irregular,
+            x='YearMonth',
+            y='expense',
+            color='category',
+            barmode='stack',
+            text_auto=True,
+            title='突発・特別支出の発生月（家具・家電 / 交際費 / 旅行費 / 冠婚葬祭 / その他）',
+            color_discrete_sequence=px.colors.qualitative.Set2,
+        )
+        irregular_fig.update_layout(yaxis_title='金額（円）', xaxis_title='年月')
 
     ## Area Chart for Income and Expense Trend
     df['balance'] = df['income'].fillna(0) - df['expense'].fillna(0)
@@ -166,11 +194,12 @@ def update_income_outcome_trend(n_clicks):
 
     return (
         f"{total_income:,.0f}円",
-        f"{total_expense:,.0f}円", 
+        f"{total_expense:,.0f}円",
         f"{total_balance:,.0f}円",
         f"{total_balance_ratio:.2f}%",
         pie_fig,
         bar_fig,
+        irregular_fig,
         area_fig,
         table_monthly_summary,
     )
