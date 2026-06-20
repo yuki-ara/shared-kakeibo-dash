@@ -12,5 +12,11 @@ layout = html.Div([
         html.Li("それ以外で支払ったものは、各自で入力すること。"),
         html.Li("ｳﾗｳﾗﾔﾊﾔﾊ"),
     ]),
-    html.Td(html.Img(src='assets/chiikawa-usagi.png'))
+    html.Div(
+        html.Img(
+            src='assets/chiikawa-usagi.png',
+            style={'maxWidth': '100%', 'height': 'auto', 'display': 'block'}
+        ),
+        style={'marginTop': '16px'}
+    )
 ])
