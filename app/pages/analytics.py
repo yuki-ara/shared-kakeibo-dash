@@ -84,7 +84,11 @@ layout = dbc.Container([
         dbc.Col(dcc.Graph(id='income-outcome-trend-graph'), width=12, md=8, className="mb-4"),
     ]),
     dbc.Row([
-        dbc.Col(dcc.Graph(id='irregular-expense-graph'), width=12, className="mb-4"),
+        dbc.Col([
+            html.H5("突発・特別支出", className="mb-3 text-muted"),
+            html.Div(id='irregular-expense-cards'),
+        ], width=12, md=6, className="mb-4"),
+        dbc.Col(dcc.Graph(id='saving-rate-graph'), width=12, md=6, className="mb-4"),
     ]),
     dbc.Row([
         dbc.Col(dcc.Graph(id='area-income-outcome-trend'), width=12, className="mb-4"),
@@ -102,7 +106,8 @@ layout = dbc.Container([
         Output('total-balance-ratio', 'children'),
         Output('pie-expense-category', 'figure'),
         Output('income-outcome-trend-graph', 'figure'),
-        Output('irregular-expense-graph', 'figure'),
+        Output('irregular-expense-cards', 'children'),
+        Output('saving-rate-graph', 'figure'),
         Output('area-income-outcome-trend', 'figure'),
         Output('table-monthly-summary', 'children')
     ],
@@ -147,27 +152,30 @@ def update_income_outcome_trend(n_clicks):
         color_discrete_sequence=px.colors.qualitative.Pastel,
     )
 
-    ## Bar Chart for Irregular Expenses
+    ## Cards for Irregular Expenses
     if df_grouped_irregular.empty:
-        irregular_fig = go.Figure()
-        irregular_fig.update_layout(
-            title='突発・特別支出の発生月（家具・家電 / 交際費 / 旅行費 / 冠婚葬祭 / その他）',
-            annotations=[dict(text='該当データなし', showarrow=False, font_size=16, xref='paper', yref='paper', x=0.5, y=0.5)]
-        )
+        irregular_cards = html.P("該当データなし", className="text-muted")
     else:
-        irregular_fig = px.bar(
-            df_grouped_irregular,
-            x='YearMonth',
-            y='expense',
-            color='category',
-            barmode='stack',
-            text_auto=True,
-            title='突発・特別支出の発生月（家具・家電 / 交際費 / 旅行費 / 冠婚葬祭 / その他）',
-            color_discrete_sequence=px.colors.qualitative.Set2,
-        )
-        irregular_fig.update_layout(yaxis_title='金額（円）', xaxis_title='年月')
+        df_irr_month = df_grouped_irregular.groupby('YearMonth')
+        cards = []
+        for ym, group in df_irr_month:
+            total = group['expense'].sum()
+            breakdown = [
+                html.Li(f"{row['category']}: {row['expense']:,.0f}円", className="small")
+                for _, row in group.iterrows() if row['expense'] > 0
+            ]
+            cards.append(
+                dbc.Card([
+                    dbc.CardHeader(ym, className="py-1 px-2 small fw-bold"),
+                    dbc.CardBody([
+                        html.P(f"合計: {total:,.0f}円", className="mb-1 fw-bold"),
+                        html.Ul(breakdown, className="mb-0 ps-3"),
+                    ], className="py-2 px-2"),
+                ], className="mb-2", style={"fontSize": "0.85rem"})
+            )
+        irregular_cards = html.Div(cards, style={"maxHeight": "400px", "overflowY": "auto"})
 
-    ## Area Chart for Income and Expense Trend
+    ## Monthly Summary (貯蓄率グラフ・エリアチャート共通データ)
     df['balance'] = df['income'].fillna(0) - df['expense'].fillna(0)
     df_monthly_summary = df.groupby('YearMonth').agg(
         monthly_income =('income', 'sum'),
@@ -176,6 +184,25 @@ def update_income_outcome_trend(n_clicks):
     ).reset_index()
     df_monthly_summary['total_saving'] = df_monthly_summary['monthly_balance'].cumsum()
     df_monthly_summary['saving_rate']  = (df_monthly_summary['monthly_balance'] / df_monthly_summary['monthly_income'].replace(0, float('nan')) * 100).fillna(0)
+
+    ## Saving Rate Bar Chart
+    saving_rate_colors = ['#ef553b' if v < 0 else '#00cc96' for v in df_monthly_summary['saving_rate']]
+    saving_rate_fig = go.Figure(go.Bar(
+        x=df_monthly_summary['YearMonth'],
+        y=df_monthly_summary['saving_rate'],
+        marker_color=saving_rate_colors,
+        text=[f"{v:.1f}%" for v in df_monthly_summary['saving_rate']],
+        textposition='outside',
+    ))
+    saving_rate_fig.update_layout(
+        title='月次貯蓄率',
+        xaxis_title='年月',
+        yaxis_title='貯蓄率（%）',
+        yaxis=dict(ticksuffix='%'),
+        showlegend=False,
+    )
+
+    ## Area Chart for Income and Expense Trend
     area_fig = go.Figure()
     area_fig.add_trace(go.Scatter(x=df_monthly_summary['YearMonth'], y=df_monthly_summary['monthly_income'] , name='月収入', mode='lines+markers', line_shape='spline', fill='tozeroy'))
     area_fig.add_trace(go.Scatter(x=df_monthly_summary['YearMonth'], y=df_monthly_summary['monthly_expense'], name='月支出', mode='lines+markers', line_shape='spline', fill='tozeroy'))
@@ -199,7 +226,8 @@ def update_income_outcome_trend(n_clicks):
         f"{total_balance_ratio:.2f}%",
         pie_fig,
         bar_fig,
-        irregular_fig,
+        irregular_cards,
+        saving_rate_fig,
         area_fig,
         table_monthly_summary,
     )
