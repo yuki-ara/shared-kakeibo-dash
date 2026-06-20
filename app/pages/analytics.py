@@ -185,15 +185,17 @@ def update_income_outcome_trend(n_clicks):
     df_monthly_summary['total_saving'] = df_monthly_summary['monthly_balance'].cumsum()
     df_monthly_summary['saving_rate']  = (df_monthly_summary['monthly_balance'] / df_monthly_summary['monthly_income'].replace(0, float('nan')) * 100).fillna(0)
 
-    ## Saving Rate Bar Chart
-    saving_rate_colors = ['#ef553b' if v < 0 else '#00cc96' for v in df_monthly_summary['saving_rate']]
-    saving_rate_fig = go.Figure(go.Bar(
+    ## Saving Rate Line Chart
+    saving_rate_fig = go.Figure(go.Scatter(
         x=df_monthly_summary['YearMonth'],
         y=df_monthly_summary['saving_rate'],
-        marker_color=saving_rate_colors,
+        mode='lines+markers+text',
+        line=dict(color='#636efa', width=2),
+        marker=dict(size=7),
         text=[f"{v:.1f}%" for v in df_monthly_summary['saving_rate']],
-        textposition='outside',
+        textposition='top center',
     ))
+    saving_rate_fig.add_hline(y=0, line_dash='dash', line_color='gray', opacity=0.5)
     saving_rate_fig.update_layout(
         title='月次貯蓄率',
         xaxis_title='年月',
