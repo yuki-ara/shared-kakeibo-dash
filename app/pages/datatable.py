@@ -127,30 +127,35 @@ layout = dbc.Container([
     ),
     html.Br(),
     dbc.Row([
-        dbc.Col(id='datatable-container', className="dbc dbc-row-selectable")
+        dbc.Col(
+            dash_table.DataTable(
+                id='datatable',
+                data=[],
+                columns=[],
+                filter_action='native',
+                sort_action='native',
+                page_action='native',
+                row_selectable='single',
+                selected_rows=[],
+                page_size=10,
+                style_table={"overflowX": "auto"},
+                style_cell={'textAlign': 'left'},
+            ),
+            className="dbc dbc-row-selectable"
+        )
     ])
 ], fluid=True)
 
 
 @callback(
-    Output('datatable-container', 'children'),
+    Output('datatable', 'data'),
+    Output('datatable', 'columns'),
     Input('refresh-btn', 'n_clicks')
 )
 def update_table(n_clicks):
     df = fetch_data()
-    return dash_table.DataTable(
-        data=df.to_dict('records'),
-        columns=[{"name": i, "id": i} for i in df.columns if i != 'id'],
-        id='datatable',
-        filter_action='native',
-        sort_action='native',
-        page_action='native',
-        row_selectable='single',
-        selected_rows=[],
-        page_size=10,
-        style_table={"overflowX": "auto"},
-        style_cell={'textAlign': 'left'},
-    )
+    columns = [{"name": i, "id": i} for i in df.columns if i != 'id']
+    return df.to_dict('records'), columns
 
 
 @callback(
@@ -278,7 +283,7 @@ def toggle_delete_modal(delete_clicks, close_clicks, delete_modal_clicks, is_ope
 
 # 削除処理
 @callback(
-    Output('datatable', 'data'),
+    Output('datatable', 'data', allow_duplicate=True),
     Output('datatable', 'selected_row_ids'),
     Input('delete-modal-btn', 'n_clicks'),
     State('datatable', 'selected_row_ids'),
