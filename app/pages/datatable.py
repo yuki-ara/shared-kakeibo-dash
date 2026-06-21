@@ -290,7 +290,10 @@ def save_edit(n_clicks, row_id, date_val, income, expense, item, category, shop,
         'editor': editor,
     }
     try:
-        update_record('shared_kakeibo', row_id, updates)
+        result = update_record('shared_kakeibo', row_id, updates)
+        print(f"[DEBUG] update_record result: {result!r}")
+        if not result:
+            return *keep_open, True, f"デバッグ: 更新対象0件。row_id={row_id!r}, updates={updates}"
     except Exception as e:
         print(f"[ERROR] save_edit: {type(e).__name__}: {e}")
         return *keep_open, True, f"保存エラー: {e}"
