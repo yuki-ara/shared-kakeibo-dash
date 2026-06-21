@@ -196,7 +196,7 @@ def toggle_modal(delete_clicks, close_clicks, delete_modal_clicks, is_open):
 def delete_selected_row(n_clicks, selected_row_ids):
     if (n_clicks or 0) > 0 and selected_row_ids:
         row_id = selected_row_ids[0]
-        if not isinstance(row_id, int) or row_id <= 0:
+        if not row_id:
             return dash.no_update, dash.no_update
         try:
             delete_record('shared_kakeibo', row_id)
@@ -235,8 +235,8 @@ def populate_edit_form(is_open, row_id):
     if not is_open or row_id is None:
         return nu
     try:
-        records = fetch_record_by_id('shared_kakeibo', int(row_id))
-    except (ValueError, TypeError):
+        records = fetch_record_by_id('shared_kakeibo', row_id)
+    except Exception:
         return nu
     if not records:
         return nu
@@ -290,8 +290,7 @@ def save_edit(n_clicks, row_id, date_val, income, expense, item, category, shop,
         'editor': editor,
     }
     try:
-        record_id = int(float(str(row_id)))
-        update_record('shared_kakeibo', record_id, updates)
+        update_record('shared_kakeibo', row_id, updates)
     except Exception as e:
         print(f"[ERROR] save_edit: {type(e).__name__}: {e}")
         return *keep_open, True, f"保存エラー: {e}"
