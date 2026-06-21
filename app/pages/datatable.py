@@ -14,7 +14,8 @@ payment_options = [{'label': p['item'], 'value': p['id']} for p in fetch_all_rec
 def fetch_data():
     data = fetch_all_records('shared_kakeibo_view')
     if data:
-        return pd.DataFrame(data)
+        df = pd.DataFrame(data)
+        return df.sort_values(['date', 'created_at'], ascending=False, ignore_index=True)
     else:
         return pd.DataFrame(columns=['date', 'income', 'expense', 'item', 'category', 'shop', 'payment', 'note', 'created_at', 'editor'])
 
