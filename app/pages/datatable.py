@@ -290,8 +290,10 @@ def save_edit(n_clicks, row_id, date_val, income, expense, item, category, shop,
         'editor': editor,
     }
     try:
-        update_record('shared_kakeibo', int(row_id), updates)
-    except Exception:
-        return *keep_open, True, "保存中にエラーが発生しました。しばらくしてから再試行してください。"
+        record_id = int(float(str(row_id)))
+        update_record('shared_kakeibo', record_id, updates)
+    except Exception as e:
+        print(f"[ERROR] save_edit: {type(e).__name__}: {e}")
+        return *keep_open, True, f"保存エラー: {e}"
 
     return fetch_data().to_dict('records'), [], False, False, ""
