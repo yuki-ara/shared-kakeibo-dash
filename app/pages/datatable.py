@@ -32,6 +32,26 @@ layout = dbc.Container([
             className="text-end"
         )
     ], className="mt-3"),
+    dbc.Toast(
+        "データを更新しました！",
+        id="edit-success-toast",
+        header="成功",
+        is_open=False,
+        dismissable=True,
+        icon="success",
+        duration=4000,
+        style={"position": "fixed", "top": 66, "right": 10, "width": 350},
+    ),
+    dbc.Toast(
+        "データを削除しました！",
+        id="delete-success-toast",
+        header="成功",
+        is_open=False,
+        dismissable=True,
+        icon="success",
+        duration=4000,
+        style={"position": "fixed", "top": 66, "right": 10, "width": 350},
+    ),
     dbc.Modal(
         [
             dbc.ModalHeader(dbc.ModalTitle("削除確認")),
@@ -189,7 +209,9 @@ def toggle_modal(delete_clicks, close_clicks, delete_modal_clicks, is_open):
 
 
 @callback(
-    [Output('datatable', 'data'), Output('datatable', 'selected_row_ids')],
+    Output('datatable', 'data'),
+    Output('datatable', 'selected_row_ids'),
+    Output('delete-success-toast', 'is_open'),
     Input('delete-modal-btn', 'n_clicks'),
     State('datatable', 'selected_row_ids')
 )
@@ -197,13 +219,13 @@ def delete_selected_row(n_clicks, selected_row_ids):
     if (n_clicks or 0) > 0 and selected_row_ids:
         row_id = selected_row_ids[0]
         if not row_id:
-            return dash.no_update, dash.no_update
+            return dash.no_update, dash.no_update, False
         try:
             delete_record('shared_kakeibo', row_id)
         except Exception:
-            return dash.no_update, dash.no_update
-        return fetch_data().to_dict('records'), []
-    return dash.no_update, dash.no_update
+            return dash.no_update, dash.no_update, False
+        return fetch_data().to_dict('records'), [], True
+    return dash.no_update, dash.no_update, False
 
 
 @callback(
@@ -253,6 +275,7 @@ def populate_edit_form(is_open, row_id):
     Output('edit-modal', 'is_open', allow_duplicate=True),
     Output('edit-error-msg', 'is_open'),
     Output('edit-error-msg', 'children'),
+    Output('edit-success-toast', 'is_open'),
     Input('save-edit-btn', 'n_clicks'),
     State('selected-row', 'value'),
     State('edit-date', 'date'),
@@ -270,13 +293,13 @@ def save_edit(n_clicks, row_id, date_val, income, expense, item, category, shop,
     keep_open = (dash.no_update, dash.no_update, True)
 
     if not n_clicks or row_id is None:
-        return dash.no_update, dash.no_update, dash.no_update, False, ""
+        return dash.no_update, dash.no_update, dash.no_update, False, "", False
     if not date_val:
-        return *keep_open, True, "日付を入力してください。"
+        return *keep_open, True, "日付を入力してください。", False
     if not editor:
-        return *keep_open, True, "担当者を選択してください。"
+        return *keep_open, True, "担当者を選択してください。", False
     if income is None and expense is None:
-        return *keep_open, True, "収入または支出を入力してください。"
+        return *keep_open, True, "収入または支出を入力してください。", False
 
     updates = {
         'date': date_val,
@@ -290,12 +313,9 @@ def save_edit(n_clicks, row_id, date_val, income, expense, item, category, shop,
         'editor': editor,
     }
     try:
-        result = update_record('shared_kakeibo', row_id, updates)
-        print(f"[DEBUG] update_record result: {result!r}")
-        if not result:
-            return *keep_open, True, f"デバッグ: 更新対象0件。row_id={row_id!r}, updates={updates}"
+        update_record('shared_kakeibo', row_id, updates)
     except Exception as e:
         print(f"[ERROR] save_edit: {type(e).__name__}: {e}")
-        return *keep_open, True, f"保存エラー: {e}"
+        return *keep_open, True, "保存中にエラーが発生しました。しばらくしてから再試行してください。", False
 
-    return fetch_data().to_dict('records'), [], False, False, ""
+    return fetch_data().to_dict('records'), [], False, False, "", True
