@@ -218,8 +218,11 @@ def toggle_modal(delete_clicks, close_clicks, delete_modal_clicks, is_open):
 )
 def delete_selected_row(n_clicks, selected_row_ids):
     if (n_clicks or 0) > 0 and selected_row_ids:
-        row_id = selected_row_ids[0]
-        if not row_id:
+        try:
+            row_id = int(selected_row_ids[0])
+            if row_id <= 0:
+                return dash.no_update, dash.no_update, False
+        except (ValueError, TypeError):
             return dash.no_update, dash.no_update, False
         try:
             delete_record('shared_kakeibo', row_id)
