@@ -30,6 +30,22 @@ BUDGETS = {
     '教育費':      0,
 }
 
+def format_yen_jp(value: float) -> str:
+    """日本式の万・億単位区切りで金額を表示する（例: 10005 -> '1万5円'）。"""
+    value = int(round(value))
+    sign = '-' if value < 0 else ''
+    value = abs(value)
+    oku, rest = divmod(value, 100_000_000)
+    man, yen = divmod(rest, 10_000)
+    parts = []
+    if oku:
+        parts.append(f"{oku}億")
+    if man or (oku and yen):
+        parts.append(f"{man}万")
+    if yen or not parts:
+        parts.append(f"{yen:,}")
+    return f"{sign}{''.join(parts)}円"
+
 def build_budget_progress(actual_by_category):
     rows = []
     for category, budget in BUDGETS.items():
@@ -38,7 +54,7 @@ def build_budget_progress(actual_by_category):
             rows.append(dbc.Row([
                 dbc.Col(html.Span(category, className="fw-bold"), width=4, md=3),
                 dbc.Col(dbc.Progress(value=0, color='secondary', style={"height": "20px"}), width=5, md=6),
-                dbc.Col(html.Span(f"{actual:,.0f}円（予算未設定）", className="small text-muted"), width=3),
+                dbc.Col(html.Span(f"{format_yen_jp(actual)}（予算未設定）", className="small text-muted"), width=3),
             ], className="mb-2 align-items-center"))
             continue
         pct = actual / budget * 100
@@ -47,15 +63,15 @@ def build_budget_progress(actual_by_category):
         rows.append(dbc.Row([
             dbc.Col(html.Span(category, className="fw-bold"), width=4, md=3),
             dbc.Col(dbc.Progress(value=min(pct, 100), color=color, label=f"{pct:.0f}%", style={"height": "20px"}), width=5, md=6),
-            dbc.Col(html.Span(f"{actual:,.0f} / {budget:,.0f}円", className=amount_class), width=3),
+            dbc.Col(html.Span(f"{format_yen_jp(actual)} / {format_yen_jp(budget)}", className=amount_class), width=3),
         ], className="mb-2 align-items-center"))
     return html.Div(rows)
 
 def build_month_cards(income, expense, balance):
     return dbc.Row([
-        dbc.Col(dbc.Card([dbc.CardHeader("収入"), dbc.CardBody(html.H5(f"{income:,.0f}円", className="mb-0"))]), width=4),
-        dbc.Col(dbc.Card([dbc.CardHeader("支出"), dbc.CardBody(html.H5(f"{expense:,.0f}円", className="mb-0"))]), width=4),
-        dbc.Col(dbc.Card([dbc.CardHeader("収支"), dbc.CardBody(html.H5(f"{balance:,.0f}円", className="mb-0" + (" text-danger" if balance < 0 else "")))]), width=4),
+        dbc.Col(dbc.Card([dbc.CardHeader("収入"), dbc.CardBody(html.H5(f"{format_yen_jp(income)}", className="mb-0"))]), width=4),
+        dbc.Col(dbc.Card([dbc.CardHeader("支出"), dbc.CardBody(html.H5(f"{format_yen_jp(expense)}", className="mb-0"))]), width=4),
+        dbc.Col(dbc.Card([dbc.CardHeader("収支"), dbc.CardBody(html.H5(f"{format_yen_jp(balance)}", className="mb-0" + (" text-danger" if balance < 0 else "")))]), width=4),
     ], className="g-2 mb-3")
 
 def fetch_data():
@@ -187,6 +203,7 @@ def update_income_outcome_trend(n_clicks):
 
     df_grouped_regular  = df_regular.groupby(['YearMonth', 'category'], as_index=False).sum()
     df_grouped_irregular= df_irregular.groupby(['YearMonth', 'category'], as_index=False).sum()
+    df_grouped_regular['expense_label'] = df_grouped_regular['expense'].apply(format_yen_jp)
 
     ## Pie Chart by Category (通常支出のみ)
     pie_fig = px.pie(
@@ -196,7 +213,9 @@ def update_income_outcome_trend(n_clicks):
         title='支出カテゴリ別割合（通常支出）',
         hole=0.3,
         color_discrete_sequence=px.colors.qualitative.Pastel,
+        custom_data=['expense_label'],
     )
+    pie_fig.update_traces(hovertemplate='%{label}<br>%{customdata[0]}<br>%{percent}<extra></extra>')
 
     ## Bar Chart by Category and Month (通常支出のみ)
     bar_fig = px.bar(
@@ -205,10 +224,11 @@ def update_income_outcome_trend(n_clicks):
         y='expense',
         color='category',
         barmode='stack',
-        text_auto=True,
+        text='expense_label',
         title='月ごとの支出カテゴリ別集計（通常支出）',
         color_discrete_sequence=px.colors.qualitative.Pastel,
     )
+    bar_fig.update_traces(hovertemplate='<b>%{fullData.name}</b><br>%{x}<br>%{text}<extra></extra>')
 
     ## Cards for Irregular Expenses
     if df_grouped_irregular.empty:
@@ -219,14 +239,14 @@ def update_income_outcome_trend(n_clicks):
         for ym, group in df_irr_month:
             total = group['expense'].sum()
             breakdown = [
-                html.Li(f"{row['category']}: {row['expense']:,.0f}円", className="small")
+                html.Li(f"{row['category']}: {format_yen_jp(row['expense'])}", className="small")
                 for _, row in group.iterrows() if row['expense'] > 0
             ]
             cards.append(
                 dbc.Card([
                     dbc.CardHeader(ym, className="py-1 px-2 small fw-bold"),
                     dbc.CardBody([
-                        html.P(f"合計: {total:,.0f}円", className="mb-1 fw-bold"),
+                        html.P(f"合計: {format_yen_jp(total)}", className="mb-1 fw-bold"),
                         html.Ul(breakdown, className="mb-0 ps-3"),
                     ], className="py-2 px-2"),
                 ], className="mb-2", style={"fontSize": "0.85rem"})
@@ -263,10 +283,23 @@ def update_income_outcome_trend(n_clicks):
     )
 
     ## Area Chart for Income and Expense Trend
+    area_hovertemplate = '%{x}<br>%{fullData.name}: %{text}<extra></extra>'
     area_fig = go.Figure()
-    area_fig.add_trace(go.Scatter(x=df_monthly_summary['YearMonth'], y=df_monthly_summary['monthly_income'] , name='月収入', mode='lines+markers', line_shape='spline', fill='tozeroy'))
-    area_fig.add_trace(go.Scatter(x=df_monthly_summary['YearMonth'], y=df_monthly_summary['monthly_expense'], name='月支出', mode='lines+markers', line_shape='spline', fill='tozeroy'))
-    area_fig.add_trace(go.Scatter(x=df_monthly_summary['YearMonth'], y=df_monthly_summary['total_saving'], name='総貯蓄額', mode='lines+markers', line_shape='spline', line_color='blue'))
+    area_fig.add_trace(go.Scatter(
+        x=df_monthly_summary['YearMonth'], y=df_monthly_summary['monthly_income'], name='月収入',
+        mode='lines+markers', line_shape='spline', fill='tozeroy',
+        text=df_monthly_summary['monthly_income'].apply(format_yen_jp), hovertemplate=area_hovertemplate,
+    ))
+    area_fig.add_trace(go.Scatter(
+        x=df_monthly_summary['YearMonth'], y=df_monthly_summary['monthly_expense'], name='月支出',
+        mode='lines+markers', line_shape='spline', fill='tozeroy',
+        text=df_monthly_summary['monthly_expense'].apply(format_yen_jp), hovertemplate=area_hovertemplate,
+    ))
+    area_fig.add_trace(go.Scatter(
+        x=df_monthly_summary['YearMonth'], y=df_monthly_summary['total_saving'], name='総貯蓄額',
+        mode='lines+markers', line_shape='spline', line_color='blue',
+        text=df_monthly_summary['total_saving'].apply(format_yen_jp), hovertemplate=area_hovertemplate,
+    ))
     area_fig.update_layout(title='収入と支出の月ごとの推移', xaxis_title='年月', yaxis_title='金額')
     area_fig.update_xaxes(tickmode='array', tickvals=df_monthly_summary['YearMonth'], ticktext=df_monthly_summary['YearMonth'])
 
@@ -291,9 +324,9 @@ def update_income_outcome_trend(n_clicks):
     }
 
     return (
-        f"{total_income:,.0f}円",
-        f"{total_expense:,.0f}円",
-        f"{total_balance:,.0f}円",
+        f"{format_yen_jp(total_income)}",
+        f"{format_yen_jp(total_expense)}",
+        f"{format_yen_jp(total_balance)}",
         f"{total_balance_ratio:.2f}%",
         pie_fig,
         bar_fig,
