@@ -30,9 +30,15 @@ def resolve_new_item(table_name, options_list, dropdown_value, new_value):
     options_list.insert(-1, {'label': new_record['item'], 'value': new_record['id']})
     return new_record['id']
 
+MASTER_TARGETS = [
+    ('category', 'shared_kakeibo_category', category_options, 'カテゴリ'),
+    ('shop', 'shared_kakeibo_shop', shop_options, '店名'),
+    ('payment', 'shared_kakeibo_payment', payment_options, '支払方法'),
+]
+
 layout = html.Div([
     html.H1('家計簿入力フォーム'),
-    html.P('カテゴリ・店名・支払方法がドロップダウンに無い場合は「＋ 新しい項目を追加」を選んで名前を入力してね！'),
+    html.P('カテゴリ・店名・支払方法がドロップダウンに無い場合は、その場で「＋ 新しい項目を追加」を選ぶか、下の「マスタ登録」から単体で追加できます。'),
     dbc.Toast(
             "データを追加しました！",
             id="success-toast",
@@ -66,11 +72,11 @@ layout = html.Div([
         ]),
         dbc.Row([
             dbc.Label('収入', html_for='income-input', width=2),
-            dbc.Col(dbc.Input(id='income-input', type='number', placeholder='収入', min=0), width=10)
+            dbc.Col(dbc.Input(id='income-input', type='number', placeholder='収入'), width=10)
         ]),
         dbc.Row([
             dbc.Label('支出', html_for='expense-input', width=2),
-            dbc.Col(dbc.Input(id='expense-input', type='number', placeholder='支出', min=0), width=10)
+            dbc.Col(dbc.Input(id='expense-input', type='number', placeholder='支出'), width=10)
         ]),
         dbc.Row([
             dbc.Label('品目', html_for='item-input', width=2),
@@ -176,7 +182,77 @@ layout = html.Div([
         direction='horizontal',
         gap=2
     ),
+    html.Hr(className='mt-4'),
+    dbc.Button(
+        '＋ カテゴリ・店名・支払方法だけを登録する',
+        id='master-toggle-button',
+        n_clicks=0,
+        color='link',
+        className='ps-0'
+    ),
+    dbc.Collapse(
+        dbc.Card(
+            dbc.CardBody([
+                html.P('明細を保存せずに、カテゴリ・店名・支払方法だけを追加できます。', className='text-muted small'),
+                dbc.Alert(id='master-alert', is_open=False, dismissable=True, duration=4000),
+                dbc.Row([
+                    dbc.Col(dbc.Input(id='category-master-input', type='text', placeholder='新しいカテゴリ名', maxLength=50), width=8),
+                    dbc.Col(dbc.Button('カテゴリを追加', id='category-master-add-button', n_clicks=0, color='secondary'), width=4),
+                ], className='mb-2'),
+                dbc.Row([
+                    dbc.Col(dbc.Input(id='shop-master-input', type='text', placeholder='新しい店名', maxLength=50), width=8),
+                    dbc.Col(dbc.Button('店名を追加', id='shop-master-add-button', n_clicks=0, color='secondary'), width=4),
+                ], className='mb-2'),
+                dbc.Row([
+                    dbc.Col(dbc.Input(id='payment-master-input', type='text', placeholder='新しい支払方法', maxLength=50), width=8),
+                    dbc.Col(dbc.Button('支払方法を追加', id='payment-master-add-button', n_clicks=0, color='secondary'), width=4),
+                ]),
+            ])
+        ),
+        id='master-collapse',
+        is_open=False,
+        className='mb-3'
+    ),
 ])
+
+@dash.callback(
+    dash.Output('master-collapse', 'is_open'),
+    dash.Input('master-toggle-button', 'n_clicks'),
+    dash.State('master-collapse', 'is_open'),
+    prevent_initial_call=True
+)
+def toggle_master_section(n_clicks, is_open):
+    return not is_open
+
+
+def make_master_add_callback(prefix, table_name, options_list, label):
+    @dash.callback(
+        dash.Output('master-alert', 'is_open', allow_duplicate=True),
+        dash.Output('master-alert', 'children', allow_duplicate=True),
+        dash.Output('master-alert', 'color', allow_duplicate=True),
+        dash.Output(f'{prefix}-dropdown', 'options', allow_duplicate=True),
+        dash.Output(f'{prefix}-master-input', 'value'),
+        dash.Input(f'{prefix}-master-add-button', 'n_clicks'),
+        dash.State(f'{prefix}-master-input', 'value'),
+        prevent_initial_call=True
+    )
+    def add_master_item(n_clicks, name_value):
+        name = (name_value or '').strip()
+        if not name:
+            return True, f'{label}名を入力してください。', 'danger', dash.no_update, dash.no_update
+        try:
+            new_record = insert_record(table_name, {'item': name})[0]
+        except Exception:
+            return True, f'{label}の追加中にエラーが発生しました。しばらくしてから再試行してください。', 'danger', dash.no_update, dash.no_update
+        options_list.insert(-1, {'label': new_record['item'], 'value': new_record['id']})
+        return True, f'「{name}」を{label}に追加しました。', 'success', options_list, ''
+
+    return add_master_item
+
+
+for _prefix, _table_name, _options_list, _label in MASTER_TARGETS:
+    make_master_add_callback(_prefix, _table_name, _options_list, _label)
+
 
 @dash.callback(
     dash.Output('category-new-collapse', 'is_open'),
@@ -207,15 +283,21 @@ def toggle_payment_new_input(value):
     dash.Output('success-toast', 'is_open'),
     dash.Output('error-toast', 'is_open'),
     dash.Output('error-toast', 'children'),
-    dash.Output('category-dropdown', 'options'),
+    dash.Output('category-dropdown', 'options', allow_duplicate=True),
     dash.Output('category-dropdown', 'value', allow_duplicate=True),
-    dash.Output('shop-dropdown', 'options'),
+    dash.Output('shop-dropdown', 'options', allow_duplicate=True),
     dash.Output('shop-dropdown', 'value', allow_duplicate=True),
-    dash.Output('payment-dropdown', 'options'),
+    dash.Output('payment-dropdown', 'options', allow_duplicate=True),
     dash.Output('payment-dropdown', 'value', allow_duplicate=True),
     dash.Output('category-new-input', 'value', allow_duplicate=True),
     dash.Output('shop-new-input', 'value', allow_duplicate=True),
     dash.Output('payment-new-input', 'value', allow_duplicate=True),
+    dash.Output('date-picker-single', 'date', allow_duplicate=True),
+    dash.Output('income-input', 'value', allow_duplicate=True),
+    dash.Output('expense-input', 'value', allow_duplicate=True),
+    dash.Output('item-input', 'value', allow_duplicate=True),
+    dash.Output('remark-input', 'value', allow_duplicate=True),
+    dash.Output('editor-input', 'value', allow_duplicate=True),
     [dash.Input('submit-button', 'n_clicks')],
     [
         dash.State('date-picker-single', 'date'),
@@ -235,7 +317,7 @@ def toggle_payment_new_input(value):
 )
 def insert_data(n_clicks, date_value, income_value, expense_value, item_value, category_value, shop_value, payment_value,
                  remark_value, editor_value, category_new_value, shop_new_value, payment_new_value):
-    no_change = (dash.no_update,) * 9
+    no_change = (dash.no_update,) * 15
     if n_clicks > 0:
         if not date_value:
             return n_clicks + 1, False, True, "日付を入力してください。", *no_change
@@ -243,11 +325,6 @@ def insert_data(n_clicks, date_value, income_value, expense_value, item_value, c
             return n_clicks + 1, False, True, "担当者を選択してください。", *no_change
         if income_value is None and expense_value is None:
             return n_clicks + 1, False, True, "収入または支出を入力してください。", *no_change
-        if income_value is not None and income_value < 0:
-            return n_clicks + 1, False, True, "収入は0以上の値を入力してください。", *no_change
-        if expense_value is not None and expense_value < 0:
-            return n_clicks + 1, False, True, "支出は0以上の値を入力してください。", *no_change
-
         for dropdown_value, new_value, label in (
             (category_value, category_new_value, 'カテゴリ'),
             (shop_value, shop_new_value, '店名'),
@@ -282,10 +359,11 @@ def insert_data(n_clicks, date_value, income_value, expense_value, item_value, c
 
         return (
             n_clicks + 1, True, False, "",
-            category_options, resolved_category,
-            shop_options, resolved_shop,
-            payment_options, resolved_payment,
-            '', '', ''
+            category_options, None,
+            shop_options, None,
+            payment_options, None,
+            '', '', '',
+            date.today().isoformat(), None, None, '', '', None
         )
     return (0, False, False, "", *no_change)
 

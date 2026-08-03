@@ -82,11 +82,11 @@ layout = dbc.Container([
                     ], className="mb-2"),
                     dbc.Row([
                         dbc.Label('収入', html_for='edit-income', width=3),
-                        dbc.Col(dbc.Input(id='edit-income', type='number', min=0), width=9)
+                        dbc.Col(dbc.Input(id='edit-income', type='number'), width=9)
                     ], className="mb-2"),
                     dbc.Row([
                         dbc.Label('支出', html_for='edit-expense', width=3),
-                        dbc.Col(dbc.Input(id='edit-expense', type='number', min=0), width=9)
+                        dbc.Col(dbc.Input(id='edit-expense', type='number'), width=9)
                     ], className="mb-2"),
                     dbc.Row([
                         dbc.Label('品目', html_for='edit-item', width=3),
@@ -244,8 +244,11 @@ def toggle_edit_modal(edit_clicks, cancel_clicks):
     Output('edit-income', 'value'),
     Output('edit-expense', 'value'),
     Output('edit-item', 'value'),
+    Output('edit-category', 'options'),
     Output('edit-category', 'value'),
+    Output('edit-shop', 'options'),
     Output('edit-shop', 'value'),
+    Output('edit-payment', 'options'),
     Output('edit-payment', 'value'),
     Output('edit-note', 'value'),
     Output('edit-editor', 'value'),
@@ -254,7 +257,7 @@ def toggle_edit_modal(edit_clicks, cancel_clicks):
     prevent_initial_call=True
 )
 def populate_edit_form(is_open, row_id):
-    nu = (dash.no_update,) * 9
+    nu = (dash.no_update,) * 12
     if not is_open or row_id is None:
         return nu
     try:
@@ -264,9 +267,15 @@ def populate_edit_form(is_open, row_id):
     if not records:
         return nu
     r = records[0]
+    category_opts = [{'label': c['item'], 'value': c['id']} for c in fetch_all_records('shared_kakeibo_category')]
+    shop_opts = [{'label': s['item'], 'value': s['id']} for s in fetch_all_records('shared_kakeibo_shop')]
+    payment_opts = [{'label': p['item'], 'value': p['id']} for p in fetch_all_records('shared_kakeibo_payment')]
     return (
         r.get('date'), r.get('income'), r.get('expense'), r.get('item'),
-        r.get('category'), r.get('shop'), r.get('payment'), r.get('note'), r.get('editor')
+        category_opts, r.get('category'),
+        shop_opts, r.get('shop'),
+        payment_opts, r.get('payment'),
+        r.get('note'), r.get('editor')
     )
 
 
