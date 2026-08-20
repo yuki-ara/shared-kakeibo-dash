@@ -17,7 +17,7 @@ IRREGULAR_CATEGORIES = ['家具・家電', '交際費', '旅行費', '冠婚葬�
 # 交通費・通信費・医療費・教育費は未設定（0円）
 BUDGETS = {
     '電気代':   9000,
-    'ガス代':   3000,
+    'ガス代':   5000,
     '水道代':   8000,
     '食費':    27000,
     '外食':    13000,
@@ -45,6 +45,25 @@ def format_yen_jp(value: float) -> str:
     if yen or not parts:
         parts.append(f"{yen:,}")
     return f"{sign}{''.join(parts)}円"
+
+def build_budget_summary_card(actual_by_category):
+    total_budget = sum(b for b in BUDGETS.values() if b > 0)
+    total_actual = sum(actual_by_category.get(cat, 0) for cat, b in BUDGETS.items() if b > 0)
+    diff = total_actual - total_budget
+    if diff > 0:
+        diff_label, diff_class = f"{format_yen_jp(diff)}オーバー", "text-danger"
+    else:
+        diff_label, diff_class = f"{format_yen_jp(-diff)}余裕", "text-success"
+    return dbc.Row([
+        dbc.Col(dbc.Card([
+            dbc.CardHeader("予算合計"),
+            dbc.CardBody(html.H5(format_yen_jp(total_budget), className="mb-0")),
+        ]), width=6),
+        dbc.Col(dbc.Card([
+            dbc.CardHeader("予算に対する過不足"),
+            dbc.CardBody(html.H5(diff_label, className=f"mb-0 fw-bold {diff_class}")),
+        ]), width=6),
+    ], className="g-2 mb-3")
 
 def build_budget_progress(actual_by_category):
     rows = []
@@ -160,6 +179,7 @@ layout = dbc.Container([
             html.H5("月別サマリー", className="mb-3 text-muted"),
             dcc.Dropdown(id='month-selector', clearable=False, className="dbc mb-3", style={"maxWidth": "220px"}),
             html.Div(id='month-summary-cards'),
+            html.Div(id='budget-summary-cards'),
             html.Div(id='budget-progress-list'),
         ], width=12, className="mb-4"),
     ]),
@@ -342,13 +362,15 @@ def update_income_outcome_trend(n_clicks):
 
 @callback(
     Output('month-summary-cards', 'children'),
+    Output('budget-summary-cards', 'children'),
     Output('budget-progress-list', 'children'),
     Input('month-selector', 'value'),
     State('monthly-data-store', 'data'),
 )
 def update_month_summary(selected_month, monthly_data):
     if not selected_month or not monthly_data:
-        return html.P("データがありません", className="text-muted"), html.P("データがありません", className="text-muted")
+        empty = html.P("データがありません", className="text-muted")
+        return empty, empty, empty
 
     monthly_summary = pd.DataFrame(monthly_data.get('monthly_summary', []))
     grouped_regular = pd.DataFrame(monthly_data.get('grouped_regular', []))
@@ -370,5 +392,5 @@ def update_month_summary(selected_month, monthly_data):
     else:
         actual_by_category = {}
 
-    return month_cards, build_budget_progress(actual_by_category)
+    return month_cards, build_budget_summary_card(actual_by_category), build_budget_progress(actual_by_category)
 
