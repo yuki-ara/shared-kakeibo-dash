@@ -1,18 +1,18 @@
-/* サイドバーの幅分だけページコンテンツにマージンを追加 */
-.dash-main-content {
-  margin-left: 16rem;
-  transition: margin-left 0.2s;
-}
-
-/* 画面幅が768px以下の場合はサイドバーを上部に移動 */
-@media (max-width: 768px) {
-  .sidebar {
-    position: static !important;
-    width: 100% !important;
-    height: auto !important;
-    padding: 1rem 0.5rem !important;
+/* スマホ表示: コンテナ左右の余白を詰めて横幅を有効活用する */
+@media (max-width: 576px) {
+  .container,
+  .container-fluid,
+  .container-sm,
+  .container-md,
+  .container-lg {
+    --bs-gutter-x: 0.5rem;
+    padding-left: calc(var(--bs-gutter-x) * 0.5);
+    padding-right: calc(var(--bs-gutter-x) * 0.5);
   }
-  .dash-main-content {
-    margin-left: 0 !important;
+
+  /* ナビバーのブランド名が詰まりすぎないように */
+  .navbar .container {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
   }
 }

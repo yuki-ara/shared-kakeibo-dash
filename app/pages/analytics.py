@@ -86,6 +86,50 @@ def build_budget_progress(actual_by_category):
         ], className="mb-2 align-items-center"))
     return html.Div(rows)
 
+def build_category_average(selected_categories, category_totals, months_span):
+    if not selected_categories:
+        return html.P("カテゴリを選択してください", className="text-muted")
+    if not months_span:
+        return html.P("データがありません", className="text-muted")
+
+    totals_map = {row['category']: row for row in (category_totals or [])}
+    combined_total = 0
+    combined_count = 0
+    detail_rows = []
+    for cat in selected_categories:
+        row = totals_map.get(cat, {})
+        total = row.get('total') or 0
+        count = row.get('count') or 0
+        combined_total += total
+        combined_count += count
+        detail_rows.append(html.Tr([
+            html.Td(cat),
+            html.Td(format_yen_jp(total)),
+            html.Td(f"{count}件"),
+            html.Td(format_yen_jp(total / months_span), className="fw-bold"),
+        ]))
+
+    combined_avg = combined_total / months_span
+    label = " + ".join(selected_categories)
+
+    summary_card = dbc.Card([
+        dbc.CardHeader(f"{label} の月平均"),
+        dbc.CardBody([
+            html.H4(f"{format_yen_jp(combined_avg)}／月", className="mb-1 fw-bold text-primary"),
+            html.P(f"累計 {format_yen_jp(combined_total)}（{combined_count}件） を {months_span}ヶ月間で均した金額", className="mb-0 small text-muted"),
+        ]),
+    ], className="mb-3 shadow-sm border-0", style={"borderRadius": "16px"})
+
+    detail_table = dbc.Table(
+        [
+            html.Thead(html.Tr([html.Th("カテゴリ"), html.Th("累計"), html.Th("件数"), html.Th("月平均")])),
+            html.Tbody(detail_rows),
+        ],
+        striped=True, bordered=False, hover=True, size="sm", className="mb-0",
+    )
+
+    return html.Div([summary_card, detail_table])
+
 def build_month_cards(income, expense, balance):
     return dbc.Row([
         dbc.Col(dbc.Card([dbc.CardHeader("収入"), dbc.CardBody(html.H5(f"{format_yen_jp(income)}", className="mb-0"))]), width=4),
@@ -101,6 +145,9 @@ def fetch_data():
         return pd.DataFrame(columns=['date', 'income', 'expense', 'item', 'category', 'shop', 'payment', 'note', 'created_at', 'editor'])
 
 load_figure_template('minty')
+
+# カテゴリ月平均シミュレーター用の選択肢（マスタ変更時はサービス再起動が必要）
+category_options = [{'label': c['item'], 'value': c['item']} for c in fetch_all_records('shared_kakeibo_category')]
 
 
 total_income_card = dbc.Card([
@@ -181,6 +228,22 @@ layout = dbc.Container([
             html.Div(id='month-summary-cards'),
             html.Div(id='budget-summary-cards'),
             html.Div(id='budget-progress-list'),
+        ], width=12, className="mb-4"),
+    ]),
+    dbc.Row([
+        dbc.Col([
+            html.H5("カテゴリ月平均シミュレーター", className="mb-2 text-muted"),
+            html.P("好きなカテゴリを1つ以上選ぶと、記録全期間の合計をその期間の月数で均した「実質の月あたり負担額」を計算します。", className="small text-muted mb-3"),
+            dcc.Checklist(
+                id='category-avg-selector',
+                options=category_options,
+                value=[],
+                inline=True,
+                className="mb-3",
+                inputStyle={"marginRight": "6px", "marginLeft": "4px"},
+                labelStyle={"marginRight": "16px", "marginBottom": "6px", "display": "inline-block"},
+            ),
+            html.Div(id='category-avg-result'),
         ], width=12, className="mb-4"),
     ]),
     dbc.Row([
@@ -338,9 +401,21 @@ def update_income_outcome_trend(n_clicks):
     available_months.add(current_month)
     month_options = [{'label': m, 'value': m} for m in sorted(available_months, reverse=True)]
 
+    ## Category Average Simulator（全カテゴリ・全期間の集計と経過月数）
+    if not df.empty:
+        dates = pd.to_datetime(df['date'])
+        months_span = (dates.max().to_period('M') - dates.min().to_period('M')).n + 1
+        df_category_totals = df.groupby('category', as_index=False).agg(total=('expense', 'sum'), count=('expense', 'size'))
+        category_totals = df_category_totals.to_dict('records')
+    else:
+        months_span = 0
+        category_totals = []
+
     monthly_data = {
         'grouped_regular': df_grouped_regular[['YearMonth', 'category', 'expense']].to_dict('records'),
         'monthly_summary': df_monthly_summary[['YearMonth', 'monthly_income', 'monthly_expense', 'monthly_balance']].to_dict('records'),
+        'category_totals': category_totals,
+        'months_span': months_span,
     }
 
     return (
@@ -393,4 +468,15 @@ def update_month_summary(selected_month, monthly_data):
         actual_by_category = {}
 
     return month_cards, build_budget_summary_card(actual_by_category), build_budget_progress(actual_by_category)
+
+
+@callback(
+    Output('category-avg-result', 'children'),
+    Input('category-avg-selector', 'value'),
+    State('monthly-data-store', 'data'),
+)
+def update_category_average(selected_categories, monthly_data):
+    if not monthly_data:
+        return html.P("データがありません", className="text-muted")
+    return build_category_average(selected_categories, monthly_data.get('category_totals'), monthly_data.get('months_span'))
 

@@ -41,8 +41,8 @@ layout = html.Div([
         expand="md",
     ),
     dbc.Container([
-        html.Div(dash.page_container, className="p-4")
-    ], id="page-content"),
+        html.Div(dash.page_container, className="p-2 p-md-4")
+    ], id="page-content", fluid="lg"),
 ], id="app-container")
 
 @dash.callback(

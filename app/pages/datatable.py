@@ -153,7 +153,7 @@ layout = dbc.Container([
     dbc.Row([
         dbc.Col(id='datatable-container', className="dbc dbc-row-selectable")
     ])
-])
+], fluid=True)
 
 
 @callback(
