@@ -17,9 +17,18 @@ def _validate_table(table_name: str):
 
 def fetch_all_records(table_name: str):
     _validate_table(table_name)
+    page_size = 1000
+    all_data = []
+    start = 0
     try:
-        response = client.table(table_name).select("*").execute()
-        return response.data
+        while True:
+            response = client.table(table_name).select("*").range(start, start + page_size - 1).execute()
+            batch = response.data
+            all_data.extend(batch)
+            if len(batch) < page_size:
+                break
+            start += page_size
+        return all_data
     except Exception as e:
         print(f"[ERROR] fetch_all_records({table_name}): {e}")
         return []

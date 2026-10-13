@@ -7,10 +7,13 @@ dbc_css = "https://cdn.jsdelivr.net/gh/AnnMarieW/dash-bootstrap-templates/dbc.mi
 
 def create_app() -> Dash:
     app = dash.Dash(
-        __name__, 
-        suppress_callback_exceptions=True, 
-        use_pages=True, 
+        __name__,
+        suppress_callback_exceptions=True,
+        use_pages=True,
         external_stylesheets=[dbc.themes.MINTY, dbc_css],  # 初期テーマ
+        meta_tags=[
+            {"name": "viewport", "content": "width=device-width, initial-scale=1"},
+        ],
     )
     app.title = "家計簿アプリ"
 
